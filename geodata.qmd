@@ -1,0 +1,95 @@
+```{python}
+import geopandas as gpd
+import altair as alt
+import numpy as np
+```
+```{python}
+usa_map = gpd.read_file("cb_2018_us_state_500k.zip")
+preschool_stats = gpd.read_file('./data/preschool_stats.csv')
+```
+
+```{python}
+usa_map.head()
+
+#usa_map = usa_map.to_crs("EPSG:3857")
+
+#usa_map['centroid'] = usa_map.geometry.centroid
+
+usa_map = usa_map.rename(columns={
+    'NAME': 'State Name',
+    'GEOID': 'id'})
+#usa_map['longitude'] = usa_map.centroid.x
+
+#usa_map['latitude'] = usa_map.centroid.y
+
+preschool_geometry = preschool_stats.merge(usa_map, on=['State Name'], how='inner')
+preschool_geometry
+preschool_geometry = gpd.GeoDataFrame(preschool_geometry, geometry=preschool_geometry['geometry'])
+
+#preschool_geometry['geometry'] = preschool_geometry['geometry'].set_crs("EPSG:4326", allow_override=True)
+print(preschool_geometry['geometry'].crs)
+
+
+```
+
+```{python}
+geojson_data = preschool_geometry.__geo_interface__
+
+map_chart = alt.Chart(alt.Data(geojson=geojson_data)).mark_geoshape(
+            fill=None,  # Transparent fill
+            stroke="lightgray"
+        ).properties( 
+width=350,
+            height=350
+        ).project(
+            type='identity',  # Assume coordinates are in WGS84
+            reflectY=True
+        )
+map_chart
+```
+
+```{python}
+# Convert to GeoJSON
+geojson_data = preschool_geometry.__geo_interface__
+
+# Create Altair map
+map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape(
+    fill=None,  # Transparent fill
+    stroke="lightgray"
+).properties(
+    width=350,
+    height=350
+).project(
+    type='identity',
+    reflectY=True
+)
+map_chart
+
+```
+
+
+```{python}
+from vega_datasets import data
+
+states = alt.topo_feature(data.us_10m.url, 'states')
+
+alt.Chart(states).mark_geoshape().encode(
+    color='Total State Pre-K Spending (2023 Dollars):Q'
+).transform_lookup(
+    lookup='id',
+    from_=alt.LookupData(preschool_geometry, 'id', list(preschool_geometry.columns))
+).properties(
+    width=500,
+    height=300
+).project(
+    type='albersUsa'
+)
+
+alt.Chart(states).mark_geoshape(
+    fill='lightgray',
+    stroke='white'
+).project('albersUsa').properties(
+    width=500,
+    height=300
+)
+```
