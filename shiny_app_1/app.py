@@ -61,10 +61,10 @@ def server(input, output, session):
         filtered_df = df[df["State Name"] == selected_state]
 
         ultra_filtered_df = filtered_df[
-            filtered_df['State Name', 
-                        'Year', 
-                        'Total State Pre-K Spending (2023 Dollars)',
-                        'Total State Pre-K Enrollment']]
+            ['State Name', 
+            'Year', 
+            'Total State Pre-K Spending (2023 Dollars)',
+            'Total State Pre-K Enrollment']]
         
         return ultra_filtered_df
 
@@ -79,10 +79,10 @@ def server(input, output, session):
         filtered_df = df[df["State Name"] == selected_state]
         
         ultra_filtered_df = filtered_df[
-            filtered_df['State Name', 
-                        'Year', 
-                        'Total State Pre-K Spending (2023 Dollars)',
-                        'percent_benchmarks']]
+            ['State Name', 
+            'Year', 
+            'Total State Pre-K Spending (2023 Dollars)',
+            'percent_benchmarks']]
         
         return ultra_filtered_df
 
@@ -96,7 +96,7 @@ def server(input, output, session):
     
     @render_altair
     def scatter_plot_enrollment():
-        e_x_s_chart = alt.Chart(filtered_data_enrollment).transform_calculate(
+        e_x_s_chart = alt.Chart(filtered_data_enrollment()).transform_calculate(
             SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
         ).mark_circle(size=60).encode(
             x=alt.X(
@@ -107,14 +107,14 @@ def server(input, output, session):
             ),
                 scale=alt.Scale(
                     domain=[
-                        filtered_data_enrollment['Total State Pre-K Spending (2023 Dollars)'].min() / 1000000,
-                        filtered_data_enrollment['Total State Pre-K Spending (2023 Dollars)'].max() / 1000000
+                        filtered_data_enrollment()['Total State Pre-K Spending (2023 Dollars)'].min() / 1000000,
+                        filtered_data_enrollment()['Total State Pre-K Spending (2023 Dollars)'].max() / 1000000
                     ]
                 )
             ),
             y=alt.Y(
                 'Total State Pre-K Enrollment:Q',
-                axis=alt.Axis(title='Total  Pre-K Enrollment')
+                axis=alt.Axis(title='Total Pre-K Enrollment')
             ),
             tooltip=[
                 'State Name',
@@ -125,7 +125,7 @@ def server(input, output, session):
             title=f'{input.state()} Spending vs Enrollment'
         )
 
-        trend_line = alt.Chart(filtered_data_enrollment).transform_calculate(
+        trend_line = alt.Chart(filtered_data_enrollment()).transform_calculate(
             SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
         ).transform_regression(
             'SpendingInMillions', 'Total State Pre-K Enrollment'
@@ -138,9 +138,10 @@ def server(input, output, session):
         enrollment_chart = (e_x_s_chart + trend_line).interactive()
        
         return enrollment_chart
+
     @render_altair
     def scatter_plot_qs():
-        q_x_s_chart = alt.Chart(filtered_data_qs).transform_calculate(
+        q_x_s_chart = alt.Chart(filtered_data_qs()).transform_calculate(
             SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
         ).mark_circle(size=60).encode(
             x=alt.X(
@@ -151,9 +152,9 @@ def server(input, output, session):
                 ),
                 scale=alt.Scale(
                     domain=[
-                        il_preschool_stats['Total State Pre-K Spending (2023 Dollars)'
+                        filtered_data_qs()['Total State Pre-K Spending (2023 Dollars)'
                             ].min() / 1000000,
-                        il_preschool_stats['Total State Pre-K Spending (2023 Dollars)'
+                        filtered_data_qs()['Total State Pre-K Spending (2023 Dollars)'
                             ].max() / 1000000
                     ]
                 )
@@ -171,7 +172,7 @@ def server(input, output, session):
             title=f'{input.state()} Spending vs Percentage of Pre-K Quality Standards Met'
         )
 
-        trend_line = alt.Chart(filtered_data_qs).transform_calculate(
+        trend_line = alt.Chart(filtered_data_qs()).transform_calculate(
             SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
         ).transform_regression(
             'SpendingInMillions', 'percent_benchmarks'
@@ -181,7 +182,7 @@ def server(input, output, session):
         )
 
         # Combine scatter plot and trend line
-        quality_chart = (il_q_x_s_chart + trend_line).interactive()
+        quality_chart = (q_x_s_chart + trend_line).interactive()
 
         return quality_chart
         
