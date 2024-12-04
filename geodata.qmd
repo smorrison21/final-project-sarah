@@ -23,7 +23,8 @@ usa_map = usa_map.rename(columns={
 #usa_map['latitude'] = usa_map.centroid.y
 
 preschool_geometry = preschool_stats.merge(usa_map, on=['State Name'], how='inner')
-preschool_geometry
+preschool_geometry = preschool_geometry.rename(columns={
+    'Year': 'Date'})
 preschool_geometry = gpd.GeoDataFrame(preschool_geometry, geometry=preschool_geometry['geometry'])
 
 #preschool_geometry['geometry'] = preschool_geometry['geometry'].set_crs("EPSG:4326", allow_override=True)
@@ -33,46 +34,12 @@ print(preschool_geometry['geometry'].crs)
 ```
 
 ```{python}
-geojson_data = preschool_geometry.__geo_interface__
-
-map_chart = alt.Chart(alt.Data(geojson=geojson_data)).mark_geoshape(
-            fill=None,  # Transparent fill
-            stroke="lightgray"
-        ).properties( 
-width=350,
-            height=350
-        ).project(
-            type='identity',  # Assume coordinates are in WGS84
-            reflectY=True
-        )
-map_chart
-```
-
-```{python}
-# Convert to GeoJSON
-geojson_data = preschool_geometry.__geo_interface__
-
-# Create Altair map
-map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape(
-    fill=None,  # Transparent fill
-    stroke="lightgray"
-).properties(
-    width=350,
-    height=350
-).project(
-    type='identity',
-    reflectY=True
-)
-map_chart
-
-```
-
-
-```{python}
 from vega_datasets import data
 
 states = alt.topo_feature(data.us_10m.url, 'states')
+```
 
+```{python}
 alt.Chart(states).mark_geoshape().encode(
     color='Total State Pre-K Spending (2023 Dollars):Q'
 ).transform_lookup(
@@ -84,12 +51,18 @@ alt.Chart(states).mark_geoshape().encode(
 ).project(
     type='albersUsa'
 )
+```
 
-alt.Chart(states).mark_geoshape(
-    fill='lightgray',
-    stroke='white'
-).project('albersUsa').properties(
-    width=500,
-    height=300
-)
+```{python}
+preschool_geometry.columns
+states
+```
+```{python}
+preschool_geometry['Date'] = pd.to_datetime(preschool_geometry['Date'])
+preschool_geometry['Year'] = preschool_geometry['Date'].dt.year
+preschool_geometry['Year'] = preschool_geometry['Year'].astype(str)
+folder_path = 'data'
+os.makedirs(folder_path, exist_ok=True)
+file_path = os.path.join(folder_path, 'preschool_geometry.csv')
+preschool_geometry.to_csv(file_path, index=False)
 ```

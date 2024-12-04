@@ -30,16 +30,9 @@ quality_standards = pd.read_excel(filepath4)
 quality_standards.head
 ```
 
-```{python}
-# Merge datasets
-state_preschool_stats = spending.merge(enrollment, on=['Year', 'State Name', 'Program Name'], how='inner')
-state_preschool_stats = state_preschool_stats.merge(quality_standards, on=['Year', 'State Name', 'Program Name'], how='inner')
-```
 
 ```{python}
 # See if Illinois has enough data to be interesting
-
-illinois_preschool = state_preschool_stats[state_preschool_stats['State Name']=='Illinois']
 illinois_spending = spending[spending['State Name']=='Illinois']
 illinois_enrollment = enrollment[enrollment['State Name']=='Illinois']
 illinois_standards = quality_standards[quality_standards['State Name']=='Illinois']
@@ -54,19 +47,36 @@ illinois_spending_chart = alt.Chart(illinois_spending_wide).mark_line().encode(
    alt.X('Year'),
    alt.Y('Total State Pre-K Spending (2023 Dollars)')
 )
+illinois_spending_chart
 ```
 
 ```{python}
-spending_wide = spending.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Spending (2023 Dollars)', aggfunc='sum').reset_index()
+# Create columns for each type of spending
+spending_wide = spending.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Spending (2023 Dollars)', aggfunc='max').reset_index()
+
+# Round the values by 2 to make them easier to read
 spending_wide[['All-Reported Spending per Child (2023 Dollars)', 'State Spending per Child (2023 Dollars)', 'Total All-Reported Spending (2023 Dollars)', 'Total State Pre-K Spending (2023 Dollars)']] = spending_wide[['All-Reported Spending per Child (2023 Dollars)', 'State Spending per Child (2023 Dollars)', 'Total All-Reported Spending (2023 Dollars)', 'Total State Pre-K Spending (2023 Dollars)']].round(2)
+
+# Convert int to datetime
 spending_wide['Year'] = pd.to_datetime(spending_wide['Year'], format='%Y')
+
+# Create date column 
+spending_wide = spending_wide.rename(columns={
+    'Year': 'Date'
+})
+
+# Create year as an int column
+spending_wide['Year'] = spending_wide['Date'].dt.year
+
+# create illinois spending
+il_spending = spending_wide[spending_wide['State Name']=='Illinois']
 ```
 
 ```{python}
 alt.Chart(spending_wide).mark_line().encode(
-   alt.X('Year'),
-   alt.Y('Total State Pre-K Spending (2023 Dollars)', format='$'),
-   alt.Color('State Name')
+   x=alt.X('Date:T'),
+   y=alt.Y('Total State Pre-K Spending (2023 Dollars):Q', format='$'),
+   color=alt.Color('State Name')
 )
 ```
 
@@ -78,15 +88,15 @@ print((quality_standards['Variable Name'].nunique()))
 quality_standards['Standards Met'] = np.where(quality_standards['Benchmark Met?'] == 'Yes', 1, 0)
 
 standards_total = quality_standards.groupby(['State Name', 'Year']).sum().reset_index()
-
 ```
+
 
 ```{python}
 enrollment['Variable Name'].unique()
 
 # collapse enrollment data by state and year
 # pivot table so each type of enrollment has its own column
-enrollment_wide = enrollment.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Enrollment', aggfunc='sum').reset_index()
+enrollment_wide = enrollment.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Enrollment', aggfunc='max').reset_index()
 
 # round enrollment columns
 enrollment_wide[
@@ -101,15 +111,23 @@ enrollment_wide[
     'Percentage of 4-year-olds Enrolled in State Pre-K',
     'Total State Pre-K Enrollment']
     ].round(2)
-
+enrollment_wide[
+    ['Percentage of 3-year-olds Enrolled in State Pre-K',
+    'Percentage of 4-year-olds Enrolled in State Pre-K']] = enrollment_wide[
+    ['Percentage of 3-year-olds Enrolled in State Pre-K',
+    'Percentage of 4-year-olds Enrolled in State Pre-K']
+    ]*100
 # make year datetime
 enrollment_wide['Year'] = pd.to_datetime(enrollment_wide['Year'], format='%Y')
 
-# save national information elsewhere
-national_enrollment = enrollment_wide[enrollment_wide['State Name']=='National']
+# switch year to date
+enrollment_wide = enrollment_wide.rename(columns={
+    'Year': 'Date'
+})
 
-# remove national information from main dataframe to make chart easier to read
-enrollment_wide = enrollment_wide[enrollment_wide['State Name']!='National']
+# Create year as an int column
+enrollment_wide['Year'] = enrollment_wide['Date'].dt.year
+
 # plot enrollment trends
 enrollment_chart = alt.Chart(enrollment_wide).mark_line().encode(
    alt.X('Year:T'),
@@ -118,6 +136,7 @@ enrollment_chart = alt.Chart(enrollment_wide).mark_line().encode(
 )
 
 enrollment_chart
+
 ```
 
 ```{python}
@@ -136,7 +155,7 @@ il_enrollment_chart
 ```
 
 ```{python}
-il_preschool_stats = illinois_spending_wide.merge(illinois_enrollment, on=['Year', 'State Name'], how='inner')
+il_preschool_stats = il_spending.merge(illinois_enrollment, on=['Date', 'State Name', 'Year'], how='inner')
 ```
 
 
@@ -192,9 +211,13 @@ quality_summary = quality_standards.groupby(['State Name', 'Year']).agg(
     total_benchmarks=('Benchmark Met?', 'count')
 ).reset_index()
 quality_summary['Year'] = pd.to_datetime(quality_summary['Year'], format='%Y')
+quality_summary['Year'] = quality_summary['Year']
 quality_summary['percent_benchmarks'] = quality_summary['sum_benchmarks']/quality_summary['total_benchmarks']
 ```
 
+```{python}
+quality_standards = quality_standards.sort_values(by=['State Name', 'Year', 'Variable Name'], ascending=[True, True, True])
+```
 ```{python}
 il_quality = quality_summary[quality_summary['State Name']=='Illinois']
 il_preschool_stats = il_preschool_stats.merge(il_quality, on=['Year', 'State Name'], how='inner')
@@ -248,6 +271,7 @@ il_quality_chart
 ```{python}
 preschool_stats = spending_wide.merge(enrollment_wide, on=['Year', 'State Name'], how='inner')
 preschool_stats = preschool_stats.merge(quality_summary, on=['Year', 'State Name'], how='inner')
+preschool_stats['year'] = preschool_stats['Year'].dt.year
 folder_path = 'data'
 os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_stats.csv')

@@ -1,0 +1,47 @@
+
+```{python}
+import pandas as pd
+import altair as alt
+import numpy as np
+import os
+```
+
+
+```{python}
+# Read in quality standards data
+filepath4 = 'data/state_preschool_quality_standards_met_0.xlsx'
+quality_standards = pd.read_excel(filepath4)
+quality_standards.head
+```
+
+
+```{python}
+# Enter in All State Programs value
+quality_standards['Program Name'] = quality_standards['Program Name'].fillna('All State Programs')
+
+# Assign values to standards
+quality_standards['Standards Met'] = np.where(quality_standards['Benchmark Met?'] == 'Yes', 1, 0)
+quality_standards['Standards Met'] = np.select(
+    [
+        quality_standards['Benchmark Met?'] == 'Yes',
+        quality_standards['Benchmark Met?'] == 'NA - Program level only'
+    ],
+    [
+        1, 
+        np.nan  
+    ],
+    default=0
+)
+
+# Find total standards met
+standards_avg = quality_standards.groupby(['Year', 'State Name', 'Variable Name'])['Standards Met'].mean().reset_index()
+
+standards_total = standards_avg.groupby(['Year', 'State Name'])['Standards Met'].sum().reset_index()
+
+# Find percentages
+standards_total['percentage'] = (standards_total['Standards Met']/10)*100
+```
+
+```{python}
+
+```
