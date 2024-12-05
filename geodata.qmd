@@ -72,7 +72,7 @@ preschool_geometry.drop(
 ```
 
 ```{python}
-folder_path = 'data'
+folder_path = '.venv'
 os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_geometry.csv')
 preschool_geometry.to_csv(file_path, index=False)

@@ -38,7 +38,7 @@ app_ui = ui.page_fluid(
 def server(input, output, session):
     @reactive.calc
     def full_data():
-        return pd.read_csv("data/preschool_geometry.csv")
+        return pd.read_csv(".venv/preschool_geometry.csv")
 
     @reactive.calc
     def filtered_data_enrollment():
