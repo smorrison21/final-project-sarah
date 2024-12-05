@@ -23,8 +23,7 @@ usa_map = usa_map.rename(columns={
 #usa_map['latitude'] = usa_map.centroid.y
 
 preschool_geometry = preschool_stats.merge(usa_map, on=['State Name'], how='inner')
-preschool_geometry = preschool_geometry.rename(columns={
-    'Year': 'Date'})
+
 preschool_geometry = gpd.GeoDataFrame(preschool_geometry, geometry=preschool_geometry['geometry'])
 
 #preschool_geometry['geometry'] = preschool_geometry['geometry'].set_crs("EPSG:4326", allow_override=True)
@@ -54,13 +53,25 @@ alt.Chart(states).mark_geoshape().encode(
 ```
 
 ```{python}
-preschool_geometry.columns
-states
-```
-```{python}
-preschool_geometry['Date'] = pd.to_datetime(preschool_geometry['Date'])
-preschool_geometry['Year'] = preschool_geometry['Date'].dt.year
 preschool_geometry['Year'] = preschool_geometry['Year'].astype(str)
+
+# make dataframe smaller
+preschool_geometry.drop(
+    ['Total All-Reported Spending (2023 Dollars)',
+    'Number of 3-year-olds Enrolled in State Pre-K',
+    'Number of 4-year-olds Enrolled in State Pre-K',
+    'STATEFP',
+    'STATENS',
+    'AFFGEOID',
+    'LSAD',
+    'ALAND',
+    'AWATER'
+],  axis=1, 
+    inplace=True
+)
+```
+
+```{python}
 folder_path = 'data'
 os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_geometry.csv')

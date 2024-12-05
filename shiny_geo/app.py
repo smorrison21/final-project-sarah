@@ -76,7 +76,7 @@ def server(input, output, session):
         # Apply filters for state and measure type
         filtered_df = df[df["Year"] == selected_year]
         
-        ultra_filtered_df = filtered_df[['State Name', 'Year', 'percent_benchmarks','id']]
+        ultra_filtered_df = filtered_df[['State Name', 'Year', 'percentage','id']]
         
         return ultra_filtered_df
 
@@ -157,7 +157,7 @@ def server(input, output, session):
         states = alt.topo_feature(data.us_10m.url, 'states')
 
         qs_chart = alt.Chart(states).mark_geoshape().encode(
-            color='percent_benchmarks:Q'
+            color='percentage:Q'
         ).transform_lookup(
             lookup='id',
             from_=alt.LookupData(filtered_data_qs(), 'id', list(filtered_data_qs().columns))

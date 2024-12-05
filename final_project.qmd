@@ -117,16 +117,6 @@ enrollment_wide[
     ['Percentage of 3-year-olds Enrolled in State Pre-K',
     'Percentage of 4-year-olds Enrolled in State Pre-K']
     ]*100
-# make year datetime
-enrollment_wide['Year'] = pd.to_datetime(enrollment_wide['Year'], format='%Y')
-
-# switch year to date
-enrollment_wide = enrollment_wide.rename(columns={
-    'Year': 'Date'
-})
-
-# Create year as an int column
-enrollment_wide['Year'] = enrollment_wide['Date'].dt.year
 
 # plot enrollment trends
 enrollment_chart = alt.Chart(enrollment_wide).mark_line().encode(
@@ -204,22 +194,34 @@ il_enrollment_chart = (il_e_x_s_chart + trend_line).interactive()
 il_enrollment_chart
 ```
 ```{python}
-quality_standards['Program Name'] = quality_standards['Program Name'].fillna('Missing')
-quality_summary = quality_standards.groupby(['State Name', 'Year']).agg(
-    avg_benchmarks_met=('Standards Met', 'mean'),
-    sum_benchmarks=('Standards Met', 'sum'),
-    total_benchmarks=('Benchmark Met?', 'count')
-).reset_index()
-quality_summary['Year'] = pd.to_datetime(quality_summary['Year'], format='%Y')
-quality_summary['Year'] = quality_summary['Year']
-quality_summary['percent_benchmarks'] = quality_summary['sum_benchmarks']/quality_summary['total_benchmarks']
+# Enter in All State Programs value
+quality_standards['Program Name'] = quality_standards['Program Name'].fillna('All State Programs')
+
+# Assign values to standards
+quality_standards['Standards Met'] = np.where(quality_standards['Benchmark Met?'] == 'Yes', 1, 0)
+quality_standards['Standards Met'] = np.select(
+    [
+        quality_standards['Benchmark Met?'] == 'Yes',
+        quality_standards['Benchmark Met?'] == 'NA - Program level only'
+    ],
+    [
+        1, 
+        np.nan  
+    ],
+    default=0
+)
+
+# Find total standards met
+standards_avg = quality_standards.groupby(['Year', 'State Name', 'Variable Name'])['Standards Met'].mean().reset_index()
+
+standards_total = standards_avg.groupby(['Year', 'State Name'])['Standards Met'].sum().reset_index()
+
+# Find percentages
+standards_total['percentage'] = (standards_total['Standards Met']/10)*100
 ```
 
 ```{python}
-quality_standards = quality_standards.sort_values(by=['State Name', 'Year', 'Variable Name'], ascending=[True, True, True])
-```
-```{python}
-il_quality = quality_summary[quality_summary['State Name']=='Illinois']
+il_quality = standards_total[standards_total['State Name']=='Illinois']
 il_preschool_stats = il_preschool_stats.merge(il_quality, on=['Year', 'State Name'], how='inner')
 ```
 
@@ -241,13 +243,13 @@ il_q_x_s_chart = alt.Chart(il_preschool_stats).transform_calculate(
         )
     ),
     y=alt.Y(
-        'percent_benchmarks:Q',
+        'percentage:Q',
         axis=alt.Axis(title='Percentage of Pre-K Quality Standards Met')
     ),
     tooltip=[
         'State Name',
         'Total State Pre-K Spending (2023 Dollars):Q',
-        'percent_benchmarks'
+        'percentage'
     ]
 ).properties(
     title='Illinois Spending vs Percentage of Pre-K Quality Standards Met'
@@ -256,22 +258,22 @@ il_q_x_s_chart = alt.Chart(il_preschool_stats).transform_calculate(
 trend_line = alt.Chart(il_preschool_stats).transform_calculate(
     SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
 ).transform_regression(
-    'SpendingInMillions', 'percent_benchmarks'
+    'SpendingInMillions', 'percentage'
 ).mark_line(color='red').encode(
     x='SpendingInMillions:Q',
-    y='percent_benchmarks:Q'
+    y='percentage:Q'
 )
 
 # Combine scatter plot and trend line
 il_quality_chart = (il_q_x_s_chart + trend_line).interactive()
 
-il_quality_chart
+il_quality_chart + trend_line
 ```
 
 ```{python}
 preschool_stats = spending_wide.merge(enrollment_wide, on=['Year', 'State Name'], how='inner')
-preschool_stats = preschool_stats.merge(quality_summary, on=['Year', 'State Name'], how='inner')
-preschool_stats['year'] = preschool_stats['Year'].dt.year
+preschool_stats = preschool_stats.merge(standards_total, on=['Year', 'State Name'], how='inner')
+#preschool_stats['year'] = preschool_stats['Year'].dt.year
 folder_path = 'data'
 os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_stats.csv')

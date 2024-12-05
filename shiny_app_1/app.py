@@ -82,7 +82,7 @@ def server(input, output, session):
             ['State Name', 
             'Year', 
             'Total State Pre-K Spending (2023 Dollars)',
-            'percent_benchmarks']]
+            'percentage']]
         
         return ultra_filtered_df
 
@@ -160,13 +160,13 @@ def server(input, output, session):
                 )
         ),
             y=alt.Y(
-                'percent_benchmarks:Q',
+                'percentage:Q',
                 axis=alt.Axis(title='Percentage of Pre-K Quality Standards Met')
                 ),
             tooltip=[
                 'State Name',
                 'Total State Pre-K Spending (2023 Dollars):Q',
-                'percent_benchmarks'
+                'percentage'
             ]
         ).properties(
             title=f'{input.state()} Spending vs Percentage of Pre-K Quality Standards Met'
@@ -175,10 +175,10 @@ def server(input, output, session):
         trend_line = alt.Chart(filtered_data_qs()).transform_calculate(
             SpendingInMillions='datum["Total State Pre-K Spending (2023 Dollars)"] / 1000000'
         ).transform_regression(
-            'SpendingInMillions', 'percent_benchmarks'
+            'SpendingInMillions', 'percentage'
         ).mark_line(color='red').encode(
             x='SpendingInMillions:Q',
-            y='percent_benchmarks:Q'
+            y='percentage:Q'
         )
 
         # Combine scatter plot and trend line
