@@ -2,3 +2,7 @@ data/preschool_geometry.csv
 .zip
 final_project_instructions.pdf
 .venv
+shiny_app_1
+shiny_geo
+geodata.qmd
+quality.qmd
