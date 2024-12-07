@@ -1,0 +1,9 @@
+body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 10pt;
+    margin: 0in;
+}
+img, svg {
+    max-width: 100%;
+    height: auto;
+}

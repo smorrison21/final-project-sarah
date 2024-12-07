@@ -1,3 +1,14 @@
+---
+title: "Final Project"
+author: Sarah Morrison
+date: today
+date-format: long
+format: 
+    html:
+        echo: false
+        toc: false
+        css: styles.css
+---
 
 ```{python}
 import pandas as pd
@@ -6,54 +17,77 @@ import numpy as np
 import os
 import geopandas as gpd
 
+alt.renderers.enable('html')
 ```
 
+Section: 1
 
-# Part I: State Pre-K Metrics Data Cleaning and Storing
+Github Username: smorrison21
 
-## Read in Data
+For my final project, I explored the research question: *How Does State Spending Relate to Enrollment Trends and Quality Standards in State Pre-K?* Using preconfigured datasets from the National Institute for Early Education Research, I analyzed data spanning from 2002 to 2023. Each dataset included variables such as *Year*, *State*, *Program Name* (when applicable), and metrics related to spending, enrollment, and program quality.
+
+#### Part I: State Pre-K Metrics Data Cleaning and Storing
+
+##### Read in Data
 
 ```{python}
 # Read in spending data
 filepath2 = 'data/state_preschool_spending_2023_0.xlsx'
 spending = pd.read_excel(filepath2)
-spending.head
 
 # Read in state enrollment data
 filepath3 = 'data/state_preschool_enrollment1.xlsx'
 enrollment = pd.read_excel(filepath3)
-enrollment.head
 
 # Read in quality standards data
 filepath4 = 'data/state_preschool_quality_standards_met_0.xlsx'
 quality_standards = pd.read_excel(filepath4)
-quality_standards.head
 ```
 
-## Cleaning Spending Data:
+##### Cleaning Spending Data:
+
+The spending data includes variables such as **Total State Pre-K Spending (2023 Dollars)**, **State Spending per Child (2023 Dollars)**, **Total All-Reported Spending (2023 Dollars)**, and **All-Reported Spending per Child (2023 Dollars)**. I pivoted the DataFrame to analyze each variable separately. For my first dynamic plot, I examined the relationship between spending, enrollment, and quality standards over time for individual states, using **Total State Pre-K Spending (2023 Dollars)** to represent investments over the years. For static and comparative dynamic plots, I used **State Spending per Child (2023 Dollars)** to account for state size differences. A challenge arose with the **Program Name** column, as rows with "NA" indicated total spending across all programs. Summing values initially led to double-counting. To address this, I used the `max` function, selecting the largest value for each state-year-variable combination, ensuring accurate aggregation.
 
 ```{python}
+#| eval: false
 # print different enrollment variables measured
 print(f"the spending variables measured are:")
 print(spending['Variable Name'].unique())
+```
 
+```{python}
 # Create columns for each type of spending
-spending_wide = spending.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Spending (2023 Dollars)', aggfunc='max').reset_index()
+spending_wide = spending.pivot_table(
+    index=['State Name', 'Year'], 
+    columns='Variable Name', 
+    values='Spending (2023 Dollars)', 
+    aggfunc='max'
+).reset_index()
 
 # Round the values by 2 to make them easier to read
 spending_wide[['All-Reported Spending per Child (2023 Dollars)', 'State Spending per Child (2023 Dollars)', 'Total All-Reported Spending (2023 Dollars)', 'Total State Pre-K Spending (2023 Dollars)']] = spending_wide[['All-Reported Spending per Child (2023 Dollars)', 'State Spending per Child (2023 Dollars)', 'Total All-Reported Spending (2023 Dollars)', 'Total State Pre-K Spending (2023 Dollars)']].round(2)
 ```
 
-## Cleaning Enrollment Data
+#### Cleaning Enrollment Data
+
+The enrollment data includes variables such as **Number of 3- and 4-year-olds Enrolled**, **Percentage of 3- and 4-year-olds Enrolled**, and **Total State Pre-K Enrollment**. Cleaning involved pivoting the table and using the `max` function for accurate aggregation. For the first dynamic plot, I analyzed trends using **Total State Pre-K Enrollment**, while for static and comparative dynamic plots, I used **Percentage of 4-Year-Olds Enrolled** to account for population differences across states.
 
 ```{python}
+#| eval: false
 # print different enrollment variables measured
 print(f"the enrollment variables measured are:")
 print(enrollment['Variable Name'].unique())
+```
 
+```{python}
 # collapse enrollment data by state and year
 # pivot table so each type of enrollment has its own column
-enrollment_wide = enrollment.pivot_table(index=['State Name', 'Year'], columns='Variable Name', values='Enrollment', aggfunc='max').reset_index()
+enrollment_wide = enrollment.pivot_table(
+    index=['State Name', 'Year'], 
+    columns='Variable Name', 
+    values='Enrollment', 
+    aggfunc='max'
+).reset_index()
 
 # round enrollment columns
 enrollment_wide[
@@ -78,14 +112,18 @@ enrollment_wide[
     ]*100
 ```
 
-## Cleaning Quality Standards Data
+##### Cleaning Quality Standards Data
 
 ```{python}
 # Enter in All State Programs value
-quality_standards['Program Name'] = quality_standards['Program Name'].fillna('All State Programs')
-
+quality_standards['Program Name'] = (
+    quality_standards['Program Name']
+    .fillna('All State Programs')
+)
 # Assign values to standards
-quality_standards['Standards Met'] = np.where(quality_standards['Benchmark Met?'] == 'Yes', 1, 0)
+quality_standards['Standards Met'] = np.where(
+    quality_standards['Benchmark Met?'] == 'Yes', 1, 0)
+
 quality_standards['Standards Met'] = np.select(
     [
         quality_standards['Benchmark Met?'] == 'Yes',
@@ -99,15 +137,26 @@ quality_standards['Standards Met'] = np.select(
 )
 
 # Find total standards met
-standards_avg = quality_standards.groupby(['Year', 'State Name', 'Variable Name'])['Standards Met'].mean().reset_index()
-
-standards_total = standards_avg.groupby(['Year', 'State Name'])['Standards Met'].sum().reset_index()
-
+standards_avg = (
+    quality_standards
+    .groupby(['Year', 'State Name', 'Variable Name'])['Standards Met']
+    .mean()
+    .reset_index()
+)
+standards_total = (
+    standards_avg
+    .groupby(['Year', 'State Name'])['Standards Met']
+    .sum()
+    .reset_index()
+)
 # Find percentages
 standards_total['percentage'] = (standards_total['Standards Met']/10)*100
 ```
 
+Cleaning the quality standards data was more complex due to varying benchmark evaluations over time. Benchmarks measured from 2002–2015 included items like **Teacher Degree** and **Class Size**, while from 2016–2023, additional measures like **Curriculum Supports** were added. Unlike spending and enrollment, standards data used categorical values in a **Benchmark Met?** column. States with multiple programs often included NA rows, some labeled **NA - Program Level Only**, indicating mixed compliance. Initially, I assigned 1 for "yes" and 0 for all others, but totals sometimes exceeded the expected 10 due to averaging in the source data. To address this, I adjusted the code to include NA rows only when they matched the average and recalculated benchmarks met annually by averaging compliance and summing results for each state-year combination.
+
 ```{python}
+#| eval: false
 # print the benchmarks first measured
 early_standards = standards_avg[standards_avg['Year']==2002]
 
@@ -120,219 +169,45 @@ print(f"The current benchmarks measured are:")
 print(today_standards['Variable Name'].unique())
 ```
 
+```{python}
+print(quality_standards['Benchmark Met?'].unique())
+```
 
+##### Merge Data and Save to .csv
 
-## Static Plots
-
-### Top 10 States by Per-Child Spending (2023): Highest and Lowest
+I combined the three DataFrames for further analysis and to create my first dynamic plot.
 
 ```{python}
-# filter for only 2023
-spending_23 = spending_wide[spending_wide['Year']==2023]
-
-# filter out Guam so only 50 states included
-spending_23 = spending_23[spending_23['State Name'] != 'Guam']
-
-# find states who spend the most
-# sort by spending per child
-spending_top = spending_23.sort_values(by='State Spending per Child (2023 Dollars)', ascending=False)
-
-# get top 10 states
-spending_top = spending_top.head(10)
-spending_top['placement'] = 'High'
-
-# find states who spend the least
-# sort by spending per child
-spending_bottom = spending_23.sort_values(by='State Spending per Child (2023 Dollars)', ascending=True)
-
-# get bottom 10 states
-spending_bottom = spending_bottom.head(10)
-spending_bottom['placement'] = 'Low'
-
-# merge top and bottom
-spending_extreme = pd.concat([spending_top, spending_bottom], ignore_index=True)
-
-# map abbreviations for chart readability
-abbreviations = {
-    'Connecticut': 'CT', 'District of Columbia': 'DC', 'California': 'CA',
-    'Oregon': 'OR', 'New Jersey': 'NJ', 'Hawaii': 'HI', 'Pennsylvania': 'PA', 'Washington': 'WA', 'Virginia': 'VA', 'Michigan': 'MI', 'Wyoming': 'WY',
-    'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 'Indiana': 'IN',
-    'New Hampshire': 'NH', 'Utah': 'UT', 'Nebraska': 'NE', 'Mississippi': 'MS',
-    'Florida': 'FL'
-}
-
-spending_extreme['abbreviation'] = spending_extreme['State Name'].map(abbreviations)
-
-# sort by spending per child
-spending_extreme = spending_extreme.sort_values(by='State Spending per Child (2023 Dollars)', ascending=False)
-
-# create chart
-alt.Chart(spending_extreme).mark_bar().encode(
-    alt.X('abbreviation:N', 
-        title='State',
-        sort="-y", 
-        axis=alt.Axis(labelAngle=0)),
-    alt.Y('State Spending per Child (2023 Dollars):Q', 
-        axis=alt.Axis(format='$,.0f')),
-    alt.Color('placement:N', 
-        legend=None)
-).properties(
-    title='Top 10 States by Per-Child Spending (2023): Highest and Lowest'
+preschool_stats = spending_wide.merge(
+    enrollment_wide, 
+    on=['Year', 'State Name'], 
+    how='inner'
 )
-```
-
-### Top 10 States by Pre-K Enrollment (2023): Highest and Lowest
-
-```{python}
-# filter for only 2023
-enrollment_23 = enrollment_wide[enrollment_wide['Year']==2023]
-
-# filter out Guam so only 50 states included
-enrollment_23 = enrollment_23[enrollment_23['State Name'] != 'Guam']
-
-# start with top 10 states for enrollment
-# sort by percentage of 4s enrolled
-enrollment_23 = enrollment_23.sort_values(by='Percentage of 4-year-olds Enrolled in State Pre-K', ascending=False)
-
-# get top 10 states
-enrollment_top = enrollment_23.head(10)
-enrollment_top['placement'] = 'High'
-
-# now get bottom 10 states
-# sort by percentage of 4s enrolled
-enrollment_23 = enrollment_23.sort_values(by='Percentage of 4-year-olds Enrolled in State Pre-K', ascending=True)
-
-# get bottom 10 states
-enrollment_bottom = enrollment_23.head(10)
-enrollment_bottom['placement'] = 'Low'
-
-# merge top and bottom
-enrollment_extreme = pd.concat([enrollment_top, enrollment_bottom], ignore_index=True)
-
-# clean values
-enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'] = enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'].round(0)
-
-# transform back to decimals for chart
-enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'] = enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K']/100
-
-# map abbreviations for chart readability
-abbreviations = {
-    'District of Columbia': 'DC','Oklahoma': 'OK', 'West Virginia': 'WV',
-    'Florida': 'FL', 'Iowa': 'IA', 'Vermont': 'VT', 'Wisconsin': 'WI',
-    'New York':'NY', 'Georgia':'GA', 'Texas': 'TX', 'Wyoming': 'WY',
-    'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 'Indiana': 'IN',
-    'New Hampshire': 'NH', 'Utah': 'UT', 'Arizona': 'AZ', 'Hawaii': 'HI',
-    'North Dakota': 'ND'
-}
-enrollment_extreme['abbreviation'] = enrollment_extreme['State Name'].map(abbreviations)
-
-# sort by percentage of 4s enrolled
-enrollment_extreme = enrollment_extreme.sort_values(by='Percentage of 4-year-olds Enrolled in State Pre-K', ascending=False)
-
-# plot top 10 states
-alt.Chart(enrollment_extreme).mark_bar().encode(
-    alt.X('abbreviation:N', 
-        title='State',
-        sort="-y",
-        axis=alt.Axis(labelAngle=0)),
-    alt.Y('Percentage of 4-year-olds Enrolled in State Pre-K:Q', 
-        axis=alt.Axis(format='%')),
-    alt.Color('placement:N', 
-        legend=None)
-).properties(
-    title='Top 10 States by Pre-K Enrollment (2023): Highest and Lowest'
+preschool_stats = preschool_stats.merge(
+    standards_total, 
+    on=['Year', 'State Name'], 
+    how='inner'
 )
-```
 
-### Top 10 States with Most and Least Quality Standards Met
-
-```{python}
-# filter for only 2023
-standards_23 = standards_total[standards_total['Year']==2023]
-
-# filter out Guam and National so only 50 states included
-standards_23 = standards_23[standards_23['State Name'] != 'Guam']
-standards_23 = standards_23[standards_23['State Name'] != 'National']
-
-# find top 10 states by standards met
-# sort by standards met
-standards_23 = standards_23.sort_values(by='Standards Met', ascending=False)
-# get top 10 states
-standards_top = standards_23.head(10)
-standards_top['placement'] = 'High'
-
-# find bottom 10 states by standards met
-# sort by standards met
-standards_bottom = standards_23.sort_values(by='Standards Met', ascending=True)
-# get bottom 10 states
-standards_bottom = standards_bottom.head(10)
-standards_bottom['placement'] = 'Low'
-
-# merge top and bottom
-standards_extreme = pd.concat([standards_top, standards_bottom], ignore_index=True)
-
-# clean values
-standards_extreme['Standards Met'] = standards_extreme['Standards Met'].astype(int)
-
-# map abbreviations for chart readability
-abbreviations = {
-    'Alabama': 'AL', 'Hawaii': 'HI', 'Rhode Island': 'RI',
-    'Mississippi': 'MS', 'Michigan': 'MI', 'North Carolina': 'NC',
-    'New Mexico': 'NM', 'New Jersey': 'NJ', 'Tennessee': 'TN', 'Oklahoma': 'OK',
-    'Wyoming': 'WY', 'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 'Indiana': 'IN', 'New Hampshire': 'NH', 'Wisconsin': 'WI', 'Arizona': 'AZ', 'Alaska': 'AK', 'Missouri': 'MO'
-}
-standards_extreme['abbreviation'] = standards_extreme['State Name'].map(abbreviations)
-
-# sort data for plot
-standards_extreme = standards_extreme.sort_values(by='Standards Met', ascending=False)
-# plot top 10 states
-alt.Chart(standards_extreme).mark_bar().encode(
-    alt.X('abbreviation:N', 
-        title='State',
-        sort='-y', 
-        axis=alt.Axis(labelAngle=0)),
-    alt.Y('Standards Met:Q'),
-    alt.Color('placement:N', 
-        legend=None)
-).properties(
-    title='Top 10 States with Most and Least Quality Standards Met'
-)
-```
-
-### Duplicate States in Charts
-```{python}
-combined = pd.concat([spending_extreme['State Name'], standards_extreme['State Name'], enrollment_extreme['State Name']], ignore_index=True)
-
-# Find duplicate values
-duplicates = combined[combined.duplicated(keep=False)].unique()
-
-# Convert duplicates to a list
-duplicates_list = duplicates.tolist()
-
-print("Duplicate State Names:", duplicates_list)
-```
-
-## Merge Data and Save to .csv
-
-```{python}
-preschool_stats = spending_wide.merge(enrollment_wide, on=['Year', 'State Name'], how='inner')
-preschool_stats = preschool_stats.merge(standards_total, on=['Year', 'State Name'], how='inner')
-#preschool_stats['year'] = preschool_stats['Year'].dt.year
 folder_path = 'data'
 os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_stats.csv')
 preschool_stats.to_csv(file_path, index=False)
 ```
 
-# Part II: Creating GeoDataFrame
+#### Part II: Creating GeoDataFrame
 
-## Read in Data
+##### Read in Data
 
 ```{python}
 usa_map = gpd.read_file("data/cb_2018_us_state_500k.zip")
 ```
 
-## Merge GeoData with Main DataFrame
+I used a shapefile from a previous problem set to get state geometries.
+
+##### Merge GeoData with Main DataFrame
+
+I merged the GeoDataFrame with the DataFrame I created in the previous section to make said Dataframe into a GeoDataFrame for plotting. I then removed irrelevant columns to clean the GeoDataFrame.
 
 ```{python}
 # view usa_map
@@ -347,12 +222,13 @@ usa_map = usa_map.rename(columns={
 preschool_geometry = preschool_stats.merge(usa_map, on=['State Name'], how='inner')
 
 # turn into GeoDataFrame
-preschool_geometry = gpd.GeoDataFrame(preschool_geometry, geometry=preschool_geometry['geometry'])
+preschool_geometry = gpd.GeoDataFrame(preschool_geometry,
+    geometry=preschool_geometry['geometry'])
 
 # prep code for shiny app
 preschool_geometry['Year'] = preschool_geometry['Year'].astype(str)
 
-# make dataframe smaller
+# make DataFrame smaller
 preschool_geometry.drop(
     ['Total All-Reported Spending (2023 Dollars)',
     'Number of 3-year-olds Enrolled in State Pre-K',
@@ -368,7 +244,9 @@ preschool_geometry.drop(
 )
 ```
 
-## Save Data to .csv
+##### Save Data to .csv
+
+I saved the GeoDataFrame to a .csv to create my second dynamic plot. The file is too large, so I saved it to my Google Drive. The file, [preschool_geometry.csv](https://drive.google.com/file/d/1an43aqHepcXeK8w58ZgojYH7KKxh8lNa/view?usp=sharing), can be downloaded through the link to run the shiny app. The shiny app calls the GeoDataFrame from the data folder.
 
 ```{python}
 folder_path = 'data'
@@ -376,3 +254,249 @@ os.makedirs(folder_path, exist_ok=True)
 file_path = os.path.join(folder_path, 'preschool_geometry.csv')
 preschool_geometry.to_csv(file_path, index=False)
 ```
+
+#### Static Plots
+
+```{python}
+# filter for only 2023
+spending_23 = spending_wide[spending_wide['Year']==2023]
+
+# filter out Guam so only 50 states included
+spending_23 = spending_23[spending_23['State Name'] != 'Guam']
+
+# find states who spend the most
+# sort by spending per child
+spending_top = spending_23.sort_values(
+    by='State Spending per Child (2023 Dollars)', 
+    ascending=False
+).head(10).copy() 
+spending_top['placement'] = 'High'
+
+# find states who spend the least
+# sort by spending per child
+spending_bottom = spending_23.sort_values(
+    by='State Spending per Child (2023 Dollars)', 
+    ascending=True
+).head(10).copy()
+spending_bottom['placement'] = 'Low'
+
+# merge top and bottom
+spending_extreme = pd.concat([spending_top, spending_bottom], ignore_index=True)
+
+# map abbreviations for chart readability
+abbreviations = {
+    'Connecticut': 'CT', 'District of Columbia': 'DC', 'California': 'CA',
+    'Oregon': 'OR', 'New Jersey': 'NJ', 'Hawaii': 'HI', 'Pennsylvania': 'PA', 
+    'Washington': 'WA', 'Virginia': 'VA', 'Michigan': 'MI', 'Wyoming': 'WY',
+    'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 'Indiana': 'IN',
+    'New Hampshire': 'NH', 'Utah': 'UT', 'Nebraska': 'NE', 'Mississippi': 'MS',
+    'Florida': 'FL'
+}
+
+spending_extreme['abbreviation'] = spending_extreme['State Name'].map(abbreviations)
+
+# sort by spending per child
+spending_extreme = spending_extreme.sort_values(
+    by='State Spending per Child (2023 Dollars)', 
+    ascending=False
+)
+
+# create chart
+spending_chart = alt.Chart(spending_extreme).mark_bar().encode(
+    alt.X('abbreviation:N', 
+        title='State',
+        sort="-y"),
+    alt.Y('State Spending per Child (2023 Dollars):Q', 
+        axis=alt.Axis(format='$,.0f')),
+    alt.Color('placement:N', 
+        legend=None)
+).properties(
+    title='Top 10 States by Per-Child Spending (2023): Highest and Lowest',
+    width=200
+)
+```
+
+```{python}
+# filter for only 2023
+enrollment_23 = enrollment_wide[enrollment_wide['Year']==2023]
+
+# filter out Guam so only 50 states included
+enrollment_23 = enrollment_23[enrollment_23['State Name'] != 'Guam']
+
+# start with top 10 states for enrollment
+# sort by percentage of 4s enrolled
+enrollment_top = enrollment_23.sort_values(
+    by='Percentage of 4-year-olds Enrolled in State Pre-K', 
+    ascending=False
+).head(10).copy() 
+
+enrollment_top['placement'] = 'High'
+
+# now get bottom 10 states
+# sort by percentage of 4s enrolled
+enrollment_bottom = enrollment_23.sort_values(
+    by='Percentage of 4-year-olds Enrolled in State Pre-K', 
+    ascending=True
+).head(10).copy() 
+
+enrollment_bottom['placement'] = 'Low'
+
+# merge top and bottom
+enrollment_extreme = pd.concat(
+    [enrollment_top, 
+    enrollment_bottom], 
+    ignore_index=True
+)
+
+# clean values
+enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'] = \
+    enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'].round(0)
+
+# transform back to decimals for chart
+enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K'] = \
+    enrollment_extreme['Percentage of 4-year-olds Enrolled in State Pre-K']/100
+
+# map abbreviations for chart readability
+abbreviations = {
+    'District of Columbia': 'DC','Oklahoma': 'OK', 'West Virginia': 'WV',
+    'Florida': 'FL', 'Iowa': 'IA', 'Vermont': 'VT', 'Wisconsin': 'WI',
+    'New York':'NY', 'Georgia':'GA', 'Texas': 'TX', 'Wyoming': 'WY',
+    'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 'Indiana': 'IN',
+    'New Hampshire': 'NH', 'Utah': 'UT', 'Arizona': 'AZ', 'Hawaii': 'HI',
+    'North Dakota': 'ND'
+}
+enrollment_extreme['abbreviation'] = (
+    enrollment_extreme['State Name']
+    .map(abbreviations)
+)
+
+# sort by percentage of 4s enrolled
+enrollment_extreme = enrollment_extreme.sort_values(
+    by='Percentage of 4-year-olds Enrolled in State Pre-K', 
+    ascending=False
+)
+
+# plot top 10 states
+enrollment_chart = alt.Chart(enrollment_extreme).mark_bar().encode(
+    alt.X('abbreviation:N', 
+        title='State',
+        sort="-y"),
+    alt.Y('Percentage of 4-year-olds Enrolled in State Pre-K:Q', 
+        axis=alt.Axis(format='%')),
+    alt.Color('placement:N', 
+        legend=None)
+).properties(
+    title='Top 10 States by Pre-K Enrollment (2023): Highest and Lowest',
+    width=200
+)
+```
+
+```{python}
+# filter for only 2023
+standards_23 = standards_total[standards_total['Year']==2023]
+
+# filter out Guam and National so only 50 states included
+standards_23 = standards_23[standards_23['State Name'] != 'Guam']
+standards_23 = standards_23[standards_23['State Name'] != 'National']
+
+# find top 10 states by standards met
+# sort by standards met
+standards_top = standards_23.sort_values(
+    by='Standards Met', 
+    ascending=False
+).head(10).copy()
+
+standards_top['placement'] = 'High'
+
+# find bottom 10 states by standards met
+# sort by standards met
+standards_bottom = standards_23.sort_values(
+    by='Standards Met', 
+    ascending=True
+).head(10).copy()
+
+standards_bottom['placement'] = 'Low'
+
+# merge top and bottom
+standards_extreme = pd.concat([standards_top, standards_bottom], ignore_index=True)
+
+# clean values
+standards_extreme['Standards Met'] = standards_extreme['Standards Met'].astype(int)
+
+# map abbreviations for chart readability
+abbreviations = {
+    'Alabama': 'AL', 'Hawaii': 'HI', 'Rhode Island': 'RI',
+    'Mississippi': 'MS', 'Michigan': 'MI', 'North Carolina': 'NC',
+    'New Mexico': 'NM', 'New Jersey': 'NJ', 'Tennessee': 'TN', 'Oklahoma': 'OK',
+    'Wyoming': 'WY', 'Montana': 'MT', 'South Dakota': 'SD', 'Idaho': 'ID', 
+    'Indiana': 'IN', 'New Hampshire': 'NH', 'Wisconsin': 'WI', 
+    'Arizona': 'AZ', 'Alaska': 'AK', 'Missouri': 'MO'
+}
+standards_extreme['abbreviation'] = standards_extreme['State Name'].map(abbreviations)
+
+# sort data for plot
+standards_extreme = standards_extreme.sort_values(by='Standards Met', ascending=False)
+# plot top 10 states
+standards_chart = alt.Chart(standards_extreme).mark_bar().encode(
+    alt.X('abbreviation:N', 
+        title='State',
+        sort='-y', 
+        axis=alt.Axis(labelAngle=0)),
+    alt.Y('Standards Met:Q'),
+    alt.Color('placement:N', 
+        legend=None)
+).properties(
+    title='Top 10 States with Most and Least Quality Standards Met',
+    height = 200
+)
+spending_chart | enrollment_chart
+```
+
+```{python}
+standards_chart
+```
+
+*Source: National Institute for Early Education Research (2023)*
+
+Duplicate State Names in Charts: DC, New Jersey, Hawaii, Michigan, Mississippi, Florida, Utah, South Dakota, New Hampshire, Montana, Idaho, Indiana, Wyoming, Oklahoma, Texas, Arizona, Wisconsin
+
+```{python}
+#| eval: false
+combined = pd.concat([
+    spending_extreme['State Name'], 
+    standards_extreme['State Name'], 
+    enrollment_extreme['State Name']], 
+    ignore_index=True
+)
+
+# Find duplicate values
+duplicates = combined[combined.duplicated(keep=False)].unique()
+
+# Convert duplicates to a list
+duplicates_list = duplicates.tolist()
+
+print("Duplicate State Names:", 
+      duplicates_list)
+```
+
+I created three static bar charts comparing the top 10 and bottom 10 states for spending per child in state pre-K, the percentage of 4-year-olds enrolled, and quality standards met. Each chart used color-coding to highlight disparities and identify states that consistently ranked high or low. The charts revealed that higher spending per child doesn’t always align with higher enrollment or meeting more quality standards, highlighting areas for further research and policy considerations.
+
+### Dynamic Plots
+
+**Dynamic Plot 1**
+
+![](pictures/Enrollment%20Dynamic%20Plot%201.png){width="247"} ![](pictures/Quality%20Standards%20Dynamic%20Plot%201.png){width="248"} ![](pictures/Dynamic%20Plot%201%20Selection%20Options.png){width="39"}
+
+Enrollment vs Spending, Quality Standards vs. Spending, Selection Options: States
+
+The first dynamic plot explores the relationship between Total State Pre-K Spending (2023 Dollars) and either Total State Pre-K Enrollment or the Percentage of Quality Standards Met. Users can toggle between these options with radio buttons and select a state via a dropdown menu. An alternative visualization could adjust circle sizes on the enrollment plot to reflect the percentage of quality standards met. The charts show a strong positive correlation between spending and enrollment but only a weak correlation between spending and benchmarks met.
+
+**Dynamic Plot 2**
+
+![Page 2: Map and Table of all 50 States for each Metric](pictures/Dynamic%20Plot%202.png){width="303"}![Dynamic Plot 2 Selction Options: Year](pictures/Dynamic%20Plot%202%20Selections.png){width="167"}
+
+The second dynamic plot is an interactive U.S. map where states are color-coded by one of three metrics: Spending Per Child (2023 Dollars), Percentage of 4-Year-Olds Enrolled, or Percentage of Quality Standards Met. Users can toggle metrics and select a year (2002–2023) via dropdown menus, revealing geographic patterns and trends in spending, enrollment, and quality standards over time.
+
+### Policy Implications and Future Work
+
+This analysis underscores key policy implications and research needs in state pre-K programs. States should optimize fund allocation to maximize impact, with research identifying areas for more effective spending. Policymakers must balance quality and access, exploring measures of quality and strategies to enhance program effectiveness while addressing the needs of unenrolled children. Additionally, studying long-term outcomes, such as the effects of low-quality pre-K on child development and equity, is crucial for guiding strategic investments and improving early education policies.
